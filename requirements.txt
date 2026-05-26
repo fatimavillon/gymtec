@@ -7,3 +7,6 @@ plotly
 streamlit
 openpyxl
 python-dotenv
+joblib
+pyarrow
+xlrd
