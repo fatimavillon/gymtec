@@ -1,23 +1,30 @@
-import type { Metadata } from "next"
-import "./globals.css"
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+
+const inter = Inter({
+    subsets: ['latin'],
+    display: 'swap',
+    variable: '--font-inter',
+});
 
 export const metadata: Metadata = {
-    title: "GYMTEC Admin - Panel de Control",
-    description: "Portal administrativo para gestión de gimnasio UTEC",
-    viewport: {
-        width: "device-width",
-        initialScale: 1,
-    },
-}
+    title: 'GYMTEC Admin - Panel Administrativo',
+    description: 'Panel de control para monitorear el aforo del gimnasio UTEC',
+    viewport: 'width=device-width, initial-scale=1.0',
+};
 
 export default function RootLayout({
                                        children,
                                    }: {
-    children: React.ReactNode
+    children: React.ReactNode;
 }) {
     return (
-        <html lang="es">
-        <body className="bg-slate-900 text-slate-50">{children}</body>
+        <html lang="es" className={inter.variable}>
+        <head>
+            <meta name="theme-color" content="#0f172a" />
+        </head>
+        <body className="bg-slate-950">{children}</body>
         </html>
-    )
+    );
 }
