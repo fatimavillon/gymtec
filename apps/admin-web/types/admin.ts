@@ -1,86 +1,161 @@
-export type AdminRole =
-    | "Bienestar Universitario"
-    | "Administrador de Gimnasio"
-    | "Operaciones Campus"
+export type OccupancyStatus = 'Bajo' | 'Medio' | 'Alto';
+export type PriorityStatus =
+    | 'Prioridad baja'
+    | 'Prioridad media'
+    | 'Prioridad alta'
+    | 'Óptimo';
+export type AlertLevel = 'info' | 'warning' | 'critical';
+export type AccessType = 'Ingreso' | 'Salida';
 
-export type AdminScreenName =
-    | "login"
-    | "register"
-    | "dashboard"
-    | "demand"
-    | "contingency"
-
-export type AdminNavigateFn = (screen: AdminScreenName) => void
-
-export interface AdminSession {
-    adminName: string
-    email: string
-    role: AdminRole
-    isAuthenticated: boolean
-    loginTime: string // Añadido para hacer la sesión más realista
+export interface AdminLoginRequest {
+    email: string;
+    accessCode: string;
 }
 
-// Nuevas interfaces para los datos de formularios de autenticación
-export interface AdminLoginForm {
-    email: string
-    accessCode: string
-    password: string
+export interface AdminLoginResponse {
+    success: boolean;
+    token?: string;
+    adminName?: string;
+    message?: string;
 }
 
-export interface AdminRegisterForm {
-    name: string // Cambiado de adminName a name para coincidir con el campo del formulario
-    email: string
-    role: AdminRole
-    accessCode: string
-    password: string
-    confirmPassword: string
+export interface AdminKpi {
+    label: string;
+    value: string;
+    status?: string;
+    source?: string;
 }
 
-export interface AdminMetric {
-    label: string
-    value: string | number
-    accent?: "cyan" | "yellow" | "green" | "red"
+export interface DashboardKpis {
+    currentOccupancy: AdminKpi;
+    peopleInRoom: AdminKpi;
+    dailyAverage: AdminKpi;
+    bestRecommendedHour: AdminKpi;
 }
-
-export type OccupancyLevel = "bajo" | "medio" | "alto"
 
 export interface HeatmapCell {
-    day: string
-    hour: string
-    level: OccupancyLevel
-    percentage: number // Añadido para mostrar en el heatmap
+    day: string;
+    hour: string;
+    status: OccupancyStatus;
 }
 
 export interface AccessLog {
-    id: string
-    studentId: string // Cambio de 'faculty' a 'studentId' para consistencia
-    program: string // 'facultad' en el ejemplo, aquí 'program'
-    action: "INGRESO" | "SALIDA"
-    timestamp: string
-}
-
-export interface SystemAlert {
-    id: string
-    message: string
-    severity: "info" | "warning" | "critical"
-    timestamp: string // Añadido para el mock
-}
-
-export interface DemandPoint {
-    hour: string
-    baseline: number
-    withGymtec: number
-}
-
-export interface ImpactMetric {
-    label: string
-    value: string
-    accent?: "cyan" | "green" | "yellow"
-}
-
-export interface ContingencyAction {
     id: string;
+    career: string;
+    type: AccessType;
+    time: string;
+}
+
+export interface AdminAlert {
+    level: AlertLevel;
+    message: string;
+}
+
+export interface DashboardResponse {
+    dateLabel: string;
+    updatedAt: string;
+    kpis: DashboardKpis;
+    heatmap: HeatmapCell[];
+    latestLogs: AccessLog[];
+    alerts: AdminAlert[];
+}
+
+export interface HourlyAforoPoint {
+    hour: string;
+    value: number;
+    status: OccupancyStatus;
+}
+
+export interface MonitoringTableRow {
+    hour: string;
+    observed: string;
+    status: OccupancyStatus;
+    observation: string;
+}
+
+export interface MonitoringDailyResponse {
+    filters: {
+        day: string;
+        range: string;
+        status: string;
+    };
+    kpis: Record<string, AdminKpi>;
+    hourlyAforo: HourlyAforoPoint[];
+    table: MonitoringTableRow[];
+}
+
+export interface PredictionRealPoint {
+    hour: string;
+    real: number;
+    predicted: number;
+}
+
+export interface PredictionComparisonRow {
+    hour: string;
+    real: string;
+    predicted: string;
+    difference: string;
+    evaluation: 'Correcto' | 'Aceptable' | 'Revisar';
+}
+
+export interface PredictionVsRealResponse {
+    kpis: {
+        estimatedAccuracy: string;
+        meanError: string;
+        correctlyClassifiedBlocks: string;
+    };
+    series: PredictionRealPoint[];
+    table: PredictionComparisonRow[];
+    interpretation: string;
+}
+
+export interface DemandByDayPoint {
+    day: string;
+    value: number;
+}
+
+export interface OccupancyDistributionPoint {
+    name: string;
+    value: number;
+}
+
+export interface WeeklySummaryRow {
+    day: string;
+    average: string;
+    peakHour: string;
+    recommendation: string;
+}
+
+export interface WeeklyReportResponse {
+    filters: {
+        period: string;
+        day: string;
+    };
+    kpis: Record<string, AdminKpi>;
+    demandByDay: DemandByDayPoint[];
+    occupancyDistribution: OccupancyDistributionPoint[];
+    summary: WeeklySummaryRow[];
+    conclusion: string;
+}
+
+export interface OperationalRecommendation {
     title: string;
-    description: string;
-    type: "proactive" | "emergency";
+    message: string;
+    priority: PriorityStatus;
+    source: string;
+}
+
+export interface OperationalRecommendationsResponse {
+    automaticRecommendations: OperationalRecommendation[];
+    justification: string;
+    impact: {
+        congestionReduction: string;
+        scheduleDistributionImprovement: string;
+        expectedSatisfaction: string;
+    };
+}
+
+export interface AdminActionResponse {
+    success: boolean;
+    message: string;
 }
