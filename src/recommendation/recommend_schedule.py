@@ -5,7 +5,9 @@ Lógica T5:
   1. Recibe predicciones_aforo (GOLD) — ya sabemos la ocupación esperada.
   2. Recibe la disponibilidad del estudiante (de sus clases).
   3. Filtra los slots en los que el estudiante está libre.
-  4. Ordena por menor aforo predicho (desempata por hora más temprana).
+  4. Aplica el modelo de scoring (`rf02_recomendador_score.joblib`) para
+     ordenar los candidatos. Si el modelo no está entrenado todavía, cae al
+     fallback heurístico (ordenar por menor aforo predicho).
   5. Devuelve top N (default 3).
 
 Output: tabla `recomendaciones_horario` con razón explicable.
@@ -18,11 +20,19 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+import joblib
+import numpy as np
 import pandas as pd
 
 from src.features.build_features import construir_disponibilidad_estudiante
+from src.models.train_recommender import (
+    CATEGORICAL_FEATURES_RECO,
+    NUMERIC_FEATURES_RECO,
+)
 from src.utils.paths import (
+    FEATURES_AFORO_PARQUET,
     HORARIOS_SLOTS_PARQUET,
+    MODEL_RECO_JOBLIB,
     PREDICCIONES_AFORO_PARQUET,
     RECOMENDACIONES_CSV,
     RECOMENDACIONES_PARQUET,
@@ -30,6 +40,55 @@ from src.utils.paths import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _enriquecer_con_features_academicas(
+    cand: pd.DataFrame,
+    features_path: Path = FEATURES_AFORO_PARQUET,
+) -> pd.DataFrame:
+    """
+    Trae a los candidatos las columnas académicas (ratio_libres,
+    carga_academica, modalidad_predominante, etc.) que necesita el modelo
+    de scoring. Si la columna ya existe, no la pisa.
+    """
+    feats = pd.read_parquet(features_path)
+    feats_grp = (
+        feats.groupby(["dia", "slot"])
+        .agg(
+            aforo_lag1=("aforo_lag1", "mean"),
+            aforo_prom_hist=("aforo_prom_hist", "mean"),
+            ratio_libres=("ratio_libres", "first"),
+            carga_academica=("carga_academica", "first"),
+            es_finde=("es_finde", "first"),
+            es_dia_academico=("es_dia_academico", "first"),
+            modalidad_predominante=("modalidad_predominante", "first"),
+        )
+        .reset_index()
+    )
+    return cand.merge(feats_grp, on=["dia", "slot"], how="left")
+
+
+def _puntuar_con_modelo(
+    cand: pd.DataFrame,
+    model_path: Path = MODEL_RECO_JOBLIB,
+) -> pd.DataFrame:
+    """
+    Aplica el modelo Ridge entrenado para puntuar cada candidato. Devuelve
+    el mismo DataFrame con una columna `score_recomendacion` en [0, 1].
+    """
+    pipe = joblib.load(model_path)
+    cols_modelo = NUMERIC_FEATURES_RECO + CATEGORICAL_FEATURES_RECO
+    # Defaults para cuando no hay actividad académica en el slot
+    for c in NUMERIC_FEATURES_RECO:
+        if c not in cand.columns:
+            cand[c] = 0
+        cand[c] = cand[c].fillna(0)
+    if "modalidad_predominante" not in cand.columns:
+        cand["modalidad_predominante"] = "sin_clases"
+    cand["modalidad_predominante"] = cand["modalidad_predominante"].fillna("sin_clases")
+
+    cand["score_recomendacion"] = np.clip(pipe.predict(cand[cols_modelo]), 0, 1)
+    return cand
 
 
 def _razon_recomendacion(nivel: str, aforo: int, aforo_max: int) -> str:
@@ -48,6 +107,7 @@ def recomendar_para_estudiante(
     predicciones: pd.DataFrame | None = None,
     horarios_slots: pd.DataFrame | None = None,
     top_n: int = 3,
+    usar_modelo: bool = True,
 ) -> pd.DataFrame:
     """
     Devuelve el ranking top_n de horarios recomendados para un estudiante.
@@ -60,6 +120,9 @@ def recomendar_para_estudiante(
                           desde data/processed.
       horarios_slots    : DataFrame con `horarios_expandido_slots`. Idem.
       top_n             : número de horarios a recomendar (default 3).
+      usar_modelo       : si True, ordena por `score_recomendacion` del
+                          modelo Ridge entrenado. Si False (o el modelo no
+                          existe), cae al heurístico (menor aforo predicho).
     """
     if predicciones is None:
         predicciones = pd.read_parquet(PREDICCIONES_AFORO_PARQUET)
@@ -79,16 +142,32 @@ def recomendar_para_estudiante(
             columns=[
                 "student_id", "fecha", "dia", "slot", "aforo_predicho",
                 "ratio_ocupacion_predicho", "nivel_ocupacion",
+                "score_recomendacion",
                 "ranking_recomendacion", "razon_recomendacion",
             ]
         )
 
-    # Ordenar por menor aforo y, en empate, hora más temprana del día
-    cand = cand.sort_values(
-        ["aforo_predicho", "dia_num", "hora_dec"],
-        ascending=[True, True, True],
-    ).head(top_n).reset_index(drop=True)
+    # Ordenar candidatos
+    if usar_modelo and MODEL_RECO_JOBLIB.exists():
+        cand = _enriquecer_con_features_academicas(cand)
+        cand = _puntuar_con_modelo(cand)
+        cand = cand.sort_values(
+            ["score_recomendacion", "aforo_predicho", "dia_num", "hora_dec"],
+            ascending=[False, True, True, True],
+        )
+    else:
+        if usar_modelo:
+            logger.warning(
+                "Modelo de scoring no encontrado en %s. Cayendo a heurístico.",
+                MODEL_RECO_JOBLIB,
+            )
+        cand["score_recomendacion"] = np.nan
+        cand = cand.sort_values(
+            ["aforo_predicho", "dia_num", "hora_dec"],
+            ascending=[True, True, True],
+        )
 
+    cand = cand.head(top_n).reset_index(drop=True)
     cand["student_id"] = student_id
     cand["ranking_recomendacion"] = cand.index + 1
     cand["razon_recomendacion"] = cand.apply(
@@ -101,6 +180,7 @@ def recomendar_para_estudiante(
     cols = [
         "student_id", "fecha", "dia", "slot",
         "aforo_predicho", "ratio_ocupacion_predicho", "nivel_ocupacion",
+        "score_recomendacion",
         "ranking_recomendacion", "razon_recomendacion",
     ]
     return cand[cols]

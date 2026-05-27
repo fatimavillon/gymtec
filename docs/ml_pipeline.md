@@ -61,13 +61,30 @@ Origen de las variables:
 
 ## Cómo se entrena el modelo (`src/models/train_model.py`)
 
-- **Modelo baseline**: `RandomForestRegressor(n_estimators=200, min_samples_leaf=2)`.
-  También soporta `LinearRegression` para comparar (`model_kind='linear'`).
+- **Modelo 1 (RF-01)**: `RandomForestRegressor(n_estimators=200, min_samples_leaf=2)`.
+  También soporta `LinearRegression` (`model_kind='linear'`) y `LightGBM`
+  (`model_kind='lightgbm'`) para benchmarks.
+- **Por qué RandomForest como default**: dataset chico (~370 filas) donde
+  el error de varianza domina, sin dependencias extra (sklearn ya está),
+  y razonable sin tuning. LightGBM tiene sentido cuando lleguemos a 1000+ filas.
 - **Split temporal**: 80% de las primeras fechas a train, 20% últimas a test.
   Nada de mezclar pasado/futuro.
 - **Métricas**: MAE, RMSE, R² persistidas en `models_artifacts/rf01_aforo_metrics.json`.
 - **Run actual**: MAE=2.63, RMSE=3.59, R²=0.890 (n_train=276, n_test=94).
-  Buen baseline considerando que la ventana temporal es de ~23 días.
+
+## Modelo 2 — Scoring de recomendación (`src/models/train_recommender.py`)
+
+- **Tipo**: regresión `Ridge` con `StandardScaler + OneHotEncoder`.
+- **Target**: score sintético en [0, 1] que combina `(1-ratio_ocupacion)`,
+  `carga_academica`, preferencia horaria heurística, y `(1-es_finde)`.
+  Cuando exista feedback real (clicks, asistencia, ratings), reemplazamos la
+  etiqueta sin tocar el resto del pipeline.
+- **Por qué Ridge**: target sintético con relación lineal por construcción,
+  coeficientes interpretables, dataset chico. Se puede migrar a LightGBM
+  cuando agreguemos features no-lineales (preferencias del estudiante).
+- **Métricas**: MAE, RMSE, R² **y NDCG@3** (la métrica que importa porque
+  el recomendador devuelve top-3 y lo crítico es el orden, no el valor).
+- **Run actual**: MAE=0.033, R²=0.927, NDCG@3=0.998.
 
 ## Cómo se generan predicciones (`src/models/predict_model.py`)
 
@@ -86,12 +103,16 @@ Lógica T5 (`recomendar_para_estudiante`):
 1. Tomar `predicciones_aforo`.
 2. Construir disponibilidad del estudiante a partir de su lista de `clase_id`.
 3. Filtrar slots libres.
-4. Ordenar por menor `aforo_predicho`, desempate por hora más temprana.
-5. Devolver top 3 con `razon_recomendacion` explicable.
+4. Enriquecer con features académicas y puntuar con el **Modelo 2** (Ridge).
+5. Ordenar por `score_recomendacion` descendente (rompe empate por hora).
+6. Devolver top 3 con `razon_recomendacion` explicable.
+
+Si el modelo 2 no está entrenado, cae a un **fallback heurístico**: ordena
+por menor `aforo_predicho`. Útil en CI o cuando se borra `models_artifacts/`.
 
 Output `recomendaciones_horario`:
 `student_id, fecha, dia, slot, aforo_predicho, ratio_ocupacion_predicho,
-nivel_ocupacion, ranking_recomendacion, razon_recomendacion`.
+nivel_ocupacion, score_recomendacion, ranking_recomendacion, razon_recomendacion`.
 
 `franjas_menor_aforo(dia)` resuelve RF-04 directamente.
 

@@ -31,6 +31,7 @@ REQUIRED_PREDICCIONES_COLS = {
 REQUIRED_RECOS_COLS = {
     "student_id", "fecha", "dia", "slot",
     "aforo_predicho", "ratio_ocupacion_predicho", "nivel_ocupacion",
+    "score_recomendacion",
     "ranking_recomendacion", "razon_recomendacion",
 }
 

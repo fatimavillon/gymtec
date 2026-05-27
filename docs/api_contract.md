@@ -124,6 +124,7 @@ Top N horarios recomendados por estudiante. Se puede generar de dos formas:
 | `aforo_predicho` | int | Aforo esperado en ese slot. |
 | `ratio_ocupacion_predicho` | float | Ratio 0..1+. |
 | `nivel_ocupacion` | string | `bajo / medio / alto / critico`. |
+| `score_recomendacion` | float | Score 0..1 del Modelo 2 (Ridge). NaN si se usó fallback heurístico. |
 | `ranking_recomendacion` | int | 1 = mejor opción, 2 = segunda, 3 = tercera. |
 | `razon_recomendacion` | string | Texto explicable para mostrar al usuario. |
 

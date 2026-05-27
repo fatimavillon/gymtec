@@ -1,3 +1,24 @@
+"""
+Entrenamiento del modelo RF-01 — predicción de aforo del gimnasio.
+
+Modelos disponibles (configurable via `model_kind`):
+- 'linear'         : LinearRegression
+- 'random_forest'  : RandomForestRegressor (default, sin dependencias extra)
+- 'lightgbm'       : LightGBM Regressor (requiere lightgbm instalado)
+
+Por qué el default es RandomForest:
+- Dataset pequeño (~370 filas). LightGBM brilla con miles+ filas; aquí el
+  error de varianza domina y RF suele empatar/ganar.
+- Sin dependencias extra: sklearn ya está en requirements.txt.
+- Funciona razonable con hiperparámetros default; LightGBM requiere tuning.
+
+Estrategia:
+- Split temporal: las primeras 80% de fechas a train, último 20% a test.
+- Métricas: MAE, RMSE, R^2.
+- Persiste modelo + métricas + feature names en `models_artifacts/`.
+
+Trazabilidad: RF-01, T2.
+"""
 from __future__ import annotations
 
 import json
@@ -82,6 +103,22 @@ def _build_pipeline(model_kind: str) -> Pipeline:
             min_samples_leaf=2,
             random_state=42,
             n_jobs=-1,
+        )
+    elif model_kind == "lightgbm":
+        try:
+            from lightgbm import LGBMRegressor
+        except ImportError as exc:
+            raise ImportError(
+                "lightgbm no está instalado. Instálalo con `pip install lightgbm`."
+            ) from exc
+        estimator = LGBMRegressor(
+            n_estimators=300,
+            learning_rate=0.05,
+            num_leaves=31,
+            min_data_in_leaf=5,
+            random_state=42,
+            n_jobs=-1,
+            verbose=-1,
         )
     else:
         raise ValueError(f"model_kind no soportado: {model_kind}")

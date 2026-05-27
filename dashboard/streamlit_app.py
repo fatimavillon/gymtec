@@ -50,6 +50,13 @@ def cargar_metricas() -> dict:
     return json.loads(paths.MODEL_METRICS_JSON.read_text())
 
 
+@st.cache_data
+def cargar_metricas_reco() -> dict | None:
+    if not paths.MODEL_RECO_METRICS_JSON.exists():
+        return None
+    return json.loads(paths.MODEL_RECO_METRICS_JSON.read_text())
+
+
 if not paths.PREDICCIONES_AFORO_PARQUET.exists():
     st.error(
         "No encuentro las tablas GOLD. "
@@ -59,31 +66,43 @@ if not paths.PREDICCIONES_AFORO_PARQUET.exists():
 
 tablas = cargar_tablas()
 metrics = cargar_metricas()
+metrics_reco = cargar_metricas_reco()
 
 # -----------------------------------------------------------------------------
 #  Header
 # -----------------------------------------------------------------------------
 st.title("GYMTEC — Resultados del pipeline ML")
 st.caption(
-    "Branch `feature/ml` · datos → features → modelo → predicción → recomendación"
+    "Branch `feature/ml` · 2 modelos: predicción de aforo (RF-01) y "
+    "scoring de recomendación (RF-02)"
 )
 
+st.markdown("**Modelo 1 — RF-01 (predicción de aforo, RandomForest)**")
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("MAE", f"{metrics['mae']:.2f} pers.")
 c2.metric("RMSE", f"{metrics['rmse']:.2f} pers.")
 c3.metric("R²", f"{metrics['r2']:.3f}")
 c4.metric("Train / Test", f"{metrics['n_train']} / {metrics['n_test']}")
 
+if metrics_reco:
+    st.markdown("**Modelo 2 — RF-02 (scoring de recomendación, Ridge)**")
+    d1, d2, d3, d4 = st.columns(4)
+    d1.metric("MAE", f"{metrics_reco['mae']:.4f}")
+    d2.metric("R²", f"{metrics_reco['r2']:.3f}")
+    d3.metric("NDCG@3", f"{metrics_reco['ndcg_at_3']:.3f}")
+    d4.metric("Train / Test", f"{metrics_reco['n_train']} / {metrics_reco['n_test']}")
+
 # -----------------------------------------------------------------------------
 #  Tabs
 # -----------------------------------------------------------------------------
-tab_pipe, tab_pred, tab_reco, tab_feat, tab_modelo = st.tabs(
+tab_pipe, tab_pred, tab_reco, tab_feat, tab_modelo, tab_modelo2 = st.tabs(
     [
         "Pipeline",
         "Predicciones (RF-01/03/04/06)",
         "Recomendador (RF-02)",
         "Feature store",
-        "Modelo",
+        "Modelo 1 (aforo)",
+        "Modelo 2 (recomendador)",
     ]
 )
 
@@ -188,15 +207,23 @@ with tab_reco:
         if recos.empty:
             st.warning("No hay slots libres con esos cursos.")
         else:
+            st.caption(
+                "Orden por `score_recomendacion` del Modelo 2 (Ridge). "
+                "Si el modelo no está entrenado, cae al heurístico (menor aforo)."
+            )
             for _, r in recos.iterrows():
                 with st.container(border=True):
                     st.markdown(
                         f"### #{int(r['ranking_recomendacion'])} · "
                         f"{r['dia']} {r['slot']}"
                     )
+                    score_txt = (
+                        f"score={r['score_recomendacion']:.3f}"
+                        if pd.notna(r["score_recomendacion"]) else "(heurístico)"
+                    )
                     st.write(
                         f"Aforo predicho: **{int(r['aforo_predicho'])}/50** "
-                        f"({r['nivel_ocupacion']})"
+                        f"({r['nivel_ocupacion']}) · {score_txt}"
                     )
                     st.caption(r["razon_recomendacion"])
 
@@ -230,7 +257,11 @@ with tab_feat:
 
 # ---- TAB MODELO -------------------------------------------------------------
 with tab_modelo:
-    st.subheader("Métricas del modelo")
+    st.subheader("Modelo 1 — RF-01 · predicción de aforo")
+    st.caption(
+        "RandomForestRegressor entrenado sobre `features_aforo_rf01.parquet`. "
+        "Predice el aforo absoluto (personas) por slot."
+    )
     st.json(metrics)
 
     st.subheader("Top 15 features más importantes")
@@ -240,3 +271,36 @@ with tab_modelo:
         .head(15)
     )
     st.bar_chart(imp)
+
+
+# ---- TAB MODELO 2 -----------------------------------------------------------
+with tab_modelo2:
+    st.subheader("Modelo 2 — RF-02 · scoring de recomendación")
+    st.caption(
+        "Ridge regression entrenado contra una etiqueta sintética en [0, 1] "
+        "que combina aforo, carga académica, preferencia horaria y fin de "
+        "semana. Cuando exista feedback real (clicks, asistencias, ratings), "
+        "reemplazamos la etiqueta sintética sin tocar el resto del pipeline."
+    )
+
+    if metrics_reco is None:
+        st.warning(
+            "Aún no hay modelo entrenado. Corré `python -m src.run_pipeline`."
+        )
+    else:
+        st.json(metrics_reco)
+
+        st.subheader("Coeficientes (impacto de cada variable en el score)")
+        coef = (
+            pd.Series(metrics_reco["coef"])
+            .sort_values(key=abs, ascending=False)
+        )
+        st.bar_chart(coef)
+
+        st.markdown(
+            """
+**Cómo se usa**: el recomendador construye los slots libres del estudiante,
+los enriquece con `features_aforo_rf01` y los puntúa con este modelo.
+Los top-N por mayor `score_recomendacion` son la respuesta al usuario.
+            """
+        )

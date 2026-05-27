@@ -35,10 +35,18 @@ RECOMENDACIONES_PARQUET: Path = PROCESSED_DIR / "recomendaciones_horario.parquet
 PREDICCIONES_AFORO_CSV: Path = PROCESSED_DIR / "predicciones_aforo.csv"
 RECOMENDACIONES_CSV: Path = PROCESSED_DIR / "recomendaciones_horario.csv"
 
-# --- Modelo entrenado ---------------------------------------------------------
+# --- Modelos entrenados -------------------------------------------------------
 MODELS_DIR: Path = ROOT_DIR / "models_artifacts"
-MODEL_AFORO_JOBLIB: Path = MODELS_DIR / "rf01_aforo_baseline.joblib"
+
+# Modelo 1 — RF-01: predicción de aforo
+MODEL_AFORO_PKL: Path = MODELS_DIR / "rf01_aforo_baseline.pkl"
+MODEL_AFORO_JOBLIB: Path = MODEL_AFORO_PKL  # alias retrocompat
 MODEL_METRICS_JSON: Path = MODELS_DIR / "rf01_aforo_metrics.json"
+
+# Modelo 2 — RF-02: score de recomendación de horarios
+MODEL_RECO_PKL: Path = MODELS_DIR / "rf02_recomendador_score.pkl"
+MODEL_RECO_JOBLIB: Path = MODEL_RECO_PKL  # alias retrocompat
+MODEL_RECO_METRICS_JSON: Path = MODELS_DIR / "rf02_recomendador_metrics.json"
 
 # --- Parámetros del dominio ---------------------------------------------------
 # Población total estimada del campus UTEC (referencia EDA DF1).

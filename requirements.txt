@@ -10,3 +10,6 @@ python-dotenv
 joblib
 pyarrow
 xlrd
+lightgbm
+fastapi
+uvicorn[standard]
