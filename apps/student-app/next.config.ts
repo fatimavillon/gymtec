@@ -1,13 +1,10 @@
-import path from "node:path"
-import type { NextConfig } from "next"
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
     reactStrictMode: true,
-    turbopack: {
-        // La raíz de Turbopack se establece en el directorio de la aplicación actual.
-        // Esto es crucial para que Turbopack resuelva los módulos correctamente dentro del monorepo.
-        root: path.resolve(__dirname),
+    swcMinify: true,
+    compiler: {
+        removeConsole: process.env.NODE_ENV === 'production',
     },
-}
+};
 
-export default nextConfig
+module.exports = nextConfig;

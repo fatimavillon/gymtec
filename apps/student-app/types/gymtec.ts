@@ -1,56 +1,69 @@
-export type OccupancyLevel = "bajo" | "medio" | "alto"
+export type OccupancyStatus = 'Bajo' | 'Medio' | 'Alto';
 
-export type ScreenName =
-    | "login"
-    | "home"
-    | "prediction"
-    | "optimize"
-    | "results"
-    | "detail"
-    | "my-schedule"
-
-export type NavigateFn = (screen: ScreenName) => void
-
-export interface PredictionPoint {
-    time: string
-    occupancy: number
+export interface DashboardAforo {
+    currentOccupancy: number;
+    status: OccupancyStatus;
+    message: string;
+    bestNearbyHour: string;
+    peopleInRoom?: string;
+    updatedAt?: string;
 }
 
-export interface ScheduleOption {
-    day: string
-    time: string
-    occupancy: number
-    level: OccupancyLevel
+export interface PredictionBar {
+    label: string;
+    value: number;
+    status: OccupancyStatus;
 }
 
-export interface WeeklyTrendPoint {
-    day: string
-    occupancy: number
+export interface SelectedPrediction {
+    day: string;
+    hour: string;
+    value: number;
+    status: OccupancyStatus;
 }
 
-export interface UserPreferences {
-    selectedDays: string[]
-    startTime: string
-    endTime: string
-    preference: "min_occupancy" | "near_classes" | "balanced"
+export interface WeeklyTrendItem {
+    day: string;
+    value: number;
+    status: OccupancyStatus;
 }
 
-export interface CurrentOccupancyData {
-    percentage: number
-    level: OccupancyLevel
-    recommendation: string
+export interface RecommendationRequest {
+    availableDays: string[];
+    startHour: string;
+    endHour: string;
+    preference: string;
 }
 
-export interface SavedSchedule {
-    id: string
-    day: string
-    time: string
-    occupancy: number
-    level: OccupancyLevel
-    status: "upcoming" | "completed"
+export interface RecommendedSlot {
+    day: string;
+    hour: string;
+    occupancy: number;
+    status: OccupancyStatus;
 }
 
-export interface UserData {
-    name: string
-    email: string
+export interface RecommendationResponse {
+    recommended: RecommendedSlot;
+    alternatives: RecommendedSlot[];
+    reason: string;
+}
+
+export interface SaveRecommendationResponse {
+    success: boolean;
+    message: string;
+}
+
+export interface TodayPredictionsResponse {
+    bars: PredictionBar[];
+}
+
+export interface SelectedPredictionResponse {
+    day: string;
+    hour: string;
+    value: number;
+    status: OccupancyStatus;
+}
+
+export interface WeeklyTrendResponse {
+    trend: WeeklyTrendItem[];
 }
