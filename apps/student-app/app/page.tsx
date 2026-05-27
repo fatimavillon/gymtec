@@ -1,74 +1,51 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import type { NavigateFn, ScreenName, UserData } from "@/types/gymtec"
+import Link from 'next/link';
+import { Dumbbell } from 'lucide-react';
+import { StudentAppShell } from '@/components/StudentAppShell';
 
-import PhoneShell from "@/components/layout/PhoneShell"
-import LoginScreen from "@/screens/LoginScreen"
-import HomeScreen from "@/screens/HomeScreen"
-import PredictionScreen from "@/screens/PredictionScreen"
-import OptimizeScreen from "@/screens/OptimizeScreen"
-import ResultsScreen from "@/screens/ResultsScreen"
-import DetailScreen from "@/screens/DetailScreen"
-import MyScheduleScreen from "@/screens/MyScheduleScreen"
+export default function Welcome() {
+    return (
+        <div className="w-full min-h-screen bg-gradient-to-b from-blue-900 via-blue-800 to-blue-900 flex items-center justify-center p-6">
+            <div className="w-full max-w-[430px] flex flex-col items-center justify-center text-center space-y-8">
+                {/* Icon */}
+                <div className="w-24 h-24 bg-blue-700 rounded-3xl flex items-center justify-center">
+                    <Dumbbell size={56} className="text-white" strokeWidth={1.5} />
+                </div>
 
-export default function Home() {
-  const [currentScreen, setCurrentScreen] = useState<ScreenName>("login")
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  // Definir mockUser aquí para pasarlo a HomeScreen
-  const [user, setUser] = useState<UserData | null>(null)
+                {/* Title */}
+                <h1 className="text-5xl font-bold text-white">GYMTEC</h1>
 
-  const handleNavigate: NavigateFn = (screen) => {
-    setCurrentScreen(screen)
-  }
+                {/* Subtitle */}
+                <p className="text-xl text-blue-100">Consulta el aforo del gimnasio UTEC</p>
 
-  const handleLogin = (loggedInUser: UserData) => {
-    setIsLoggedIn(true)
-    setUser(loggedInUser) // Establecer el usuario logueado
-    setCurrentScreen("home")
-  }
+                {/* Description Card */}
+                <div className="w-full bg-white/10 backdrop-blur-sm border border-white/20 rounded-3xl p-6">
+                    <p className="text-base text-blue-50 leading-relaxed">
+                        Predice la ocupación, encuentra mejores horarios y entrena con menos congestión.
+                    </p>
+                </div>
 
-  const handleLogout = () => {
-    setIsLoggedIn(false)
-    setUser(null) // Limpiar usuario al cerrar sesión
-    setCurrentScreen("login")
-  }
+                {/* Buttons */}
+                <div className="w-full space-y-4 pt-4">
+                    <Link
+                        href="/home"
+                        className="flex items-center justify-center w-full bg-white text-blue-900 font-bold py-4 rounded-2xl hover:bg-blue-50 transition-colors"
+                    >
+                        Continuar →
+                    </Link>
 
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case "login":
-        return <LoginScreen onLogin={handleLogin} />
-      case "home":
-        return (
-            // Pasar el `user` al HomeScreen
-            <HomeScreen
-                user={user}
-                onNavigate={handleNavigate}
-                onLogout={handleLogout}
-            />
-        )
-      case "prediction":
-        return <PredictionScreen onNavigate={handleNavigate} />
-      case "optimize":
-        return <OptimizeScreen onNavigate={handleNavigate} />
-      case "results":
-        return <ResultsScreen onNavigate={handleNavigate} />
-      case "detail":
-        return <DetailScreen onNavigate={handleNavigate} />
-      case "my-schedule":
-        return <MyScheduleScreen onNavigate={handleNavigate} />
-      default:
-        const exhaustiveCheck: never = currentScreen
-        return exhaustiveCheck
-    }
-  }
+                    <Link
+                        href="/home"
+                        className="flex items-center justify-center w-full bg-white/20 text-white font-bold py-4 rounded-2xl border border-white/30 hover:bg-white/30 transition-colors"
+                    >
+                        Ingresar con UTEC
+                    </Link>
+                </div>
 
-  return (
-      <PhoneShell
-          currentScreen={currentScreen}
-          showBottomNav={isLoggedIn && !["login"].includes(currentScreen)}
-      >
-        {renderScreen()}
-      </PhoneShell>
-  )
+                {/* Footer */}
+                <p className="text-sm text-blue-200 mt-12">Proyecto universitario UTEC</p>
+            </div>
+        </div>
+    );
 }
